@@ -105,6 +105,7 @@ in [facade lifetime faults](https://github.com/arcanite24/pinyon-shift/blob/dev/
 | Build APK reports `symbol-order-base.txt`, `symbol-order-v4.txt` or `camera_tuning_tests.cpp` missing | An older source ZIP omitted required build inputs. Update the launcher and its installed sources, then retry Build APK |
 | The app doesn't find the PC | Different networks, a network that blocks broadcasts, or Windows Firewall. Enter the address the launcher shows and allow the launcher on private networks |
 | The app closes at once | The game files are missing. Open it from the app icon, or run `push-data` again |
+| The game closes at start on a Mali GPU (Google Tensor, Exynos, Dimensity) | The GPU can't write memory from vertex shaders. Experimental: open the setup screen (long-press the icon, **Get files from PC**) and tick **Allow GPUs without vertex shader stores**. The game skips those writes; none were seen in FH1's censused scenes, and a Pixel 7 Pro (Mali-G710) ran at about 43 fps ([details](https://github.com/arcanite24/pinyon-shift/blob/dev/docs/ANDROID.md#troubleshooting)) |
 | RESOLUTION SCALE offers only 1X | Higher scales need more shared memory than a phone has |
 | No sound | No output device could be opened. The game runs silently instead of stopping |
 

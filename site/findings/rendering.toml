@@ -86,7 +86,7 @@ name = """no memory export"""
 what = """No draw uses memexport in any censused mode: boot, menus, free roam, races, pause, map, photo mode, movies, rewind and the Autoshow."""
 how = """Per-draw census flag over every route, on both renderers."""
 confidence = """confirmed"""
-note = """Night, weather, the livery editor and multiplayer screens were not censused."""
+note = """Night, weather, the livery editor and multiplayer screens were not censused. A Pixel 7 Pro (Mali-G710, no vertexPipelineStoresAndAtomics) logged no vertex shader with memory export when the SDK skips them (`vulkan_require_vertex_pipeline_stores_and_atomics=false`), which is why that opt-in runs FH1."""
 negative = true
 source = """docs/native-renderer/NATIVE_FRAME_CONTRACT.md Primitives, front buffer, side effects"""
 
