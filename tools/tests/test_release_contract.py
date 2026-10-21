@@ -469,7 +469,6 @@ catch { [Console]::Error.Write($_.Exception.Message); exit 2 }
         spec = importlib.util.spec_from_file_location("package_launcher", ROOT / "tools/package-launcher.py")
         packager = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(packager)
-        relative = "config/performance/symbol-order-base.txt"
         with tempfile.TemporaryDirectory(prefix="pinyon-source-zip-") as directory:
             payload = pathlib.Path(directory) / "pinyon-shift-source.zip"
             packager.build_payload(payload)
@@ -477,10 +476,12 @@ catch { [Console]::Error.Write($_.Exception.Message); exit 2 }
                 # CMake configures this test target even when building only the game.
                 camera_test = "tests/camera_tuning_tests.cpp"
                 self.assertEqual(archive.read(camera_test), (ROOT / camera_test).read_bytes())
-                metadata = archive.read(relative)
-                self.assertEqual(metadata, (ROOT / relative).read_bytes())
-                # Profiling-authored linker names only, never translated code or game data.
-                self.assertRegex(metadata.decode("ascii"), r"\A(?:__imp__sub_[0-9A-F]{8}\r?\n)+\Z")
+                for variant in ("base", "v4"):
+                    relative = f"config/performance/symbol-order-{variant}.txt"
+                    metadata = archive.read(relative)
+                    self.assertEqual(metadata, (ROOT / relative).read_bytes())
+                    # Profiling-authored linker names only, never translated code or game data.
+                    self.assertRegex(metadata.decode("ascii"), r"\A(?:__imp__sub_[0-9A-F]{8}\r?\n)+\Z")
                 self.assertFalse(any(pathlib.Path(name).suffix.lower() in packager.FORBIDDEN
                                      or name.startswith("config/rexglue/generated/")
                                      for name in archive.namelist()))

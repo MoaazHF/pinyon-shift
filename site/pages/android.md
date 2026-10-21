@@ -102,7 +102,7 @@ in [facade lifetime faults](https://github.com/arcanite24/pinyon-shift/blob/dev/
 
 | Symptom | Cause |
 | --- | --- |
-| Build APK reports `symbol-order-base.txt` or `camera_tuning_tests.cpp` missing | An older source ZIP omitted required build inputs. Update the launcher and its installed sources, then retry Build APK |
+| Build APK reports `symbol-order-base.txt`, `symbol-order-v4.txt` or `camera_tuning_tests.cpp` missing | An older source ZIP omitted required build inputs. Update the launcher and its installed sources, then retry Build APK |
 | The app doesn't find the PC | Different networks, a network that blocks broadcasts, or Windows Firewall. Enter the address the launcher shows and allow the launcher on private networks |
 | The app closes at once | The game files are missing. Open it from the app icon, or run `push-data` again |
 | RESOLUTION SCALE offers only 1X | Higher scales need more shared memory than a phone has |

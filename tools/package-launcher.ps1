@@ -76,7 +76,7 @@ $include = @(
     'tools/extract-fh1-shader-corpus.py', 'tools/build-fh1-gpu-prewarm.py',
     'tools/produce-fh1-artifacts.ps1', 'tools/prepare-fh1-shaders.ps1', 'tools/prepare-fh1-vulkan.ps1',
     'config/render-tests',
-    'config/performance/symbol-order-base.txt',
+    'config/performance/symbol-order-base.txt', 'config/performance/symbol-order-v4.txt',
     'tools/build-preview.ps1', 'tools/create-crash-report.ps1', 'tools/install-build-tools.ps1',
     'tools/launch-preview.ps1', 'tools/prepare-rexglue.ps1',
     'tools/build-mod-patches.py', 'tools/build-mod-archives.py', 'tools/install-sample-mod.py',

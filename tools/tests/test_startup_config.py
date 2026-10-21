@@ -14,6 +14,10 @@ import tomllib
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+_KEYS = (ROOT / 'src/config/default_keys.h').read_text(encoding='utf-8')
+SCHEMA28_KEYS = dict(re.findall(r'\{"(keybind_\w+)", "([^"]*)"\}',
+                                _KEYS[_KEYS.index('kSchema28Keys[]'):]
+                                [:_KEYS[_KEYS.index('kSchema28Keys[]'):].index('};')]))
 CXX = os.environ.get('PINYON_STARTUP_CONFIG_TEST_CXX') or ((ROOT / '.local/toolchain/llvm-20.1.8/bin/clang++.exe') if os.name == 'nt' else shutil.which('clang++') or shutil.which('g++'))
 AVAILABLE = bool(CXX and Path(CXX).is_file() and (os.name != 'nt' or os.environ.get('INCLUDE')))
 
@@ -164,12 +168,47 @@ class StartupConfigTests(unittest.TestCase):
             self.assertEqual((result.returncode, result.stdout), (0, '1 0 1'))
             self.assertEqual(Path(str(path) + '.noschema.bak').read_bytes(), data)
             repaired = path.read_text(encoding='utf-8')
-            expected = defaults | tomllib.loads(body)
+            # Saved settings make it an earlier player's file: missing pad
+            # keys come from schema 28.
+            expected = defaults | SCHEMA28_KEYS | tomllib.loads(body)
             self.assertEqual(tomllib.loads(repaired), expected)
             self.assertIn(body.encode(), path.read_bytes())
             again = subprocess.run([str(self.exe), str(path)], capture_output=True, text=True)
             self.assertEqual((again.returncode, again.stdout), (0, '1 0 0'))
             self.assertEqual(path.read_text(encoding='utf-8'), repaired)
+
+    def test_schema_repair_gives_earlier_players_their_keys(self):
+        path, result = self.run_gate(b'vsync = false\n')
+        self.assertEqual((result.returncode, result.stdout), (0, '1 0 1'))
+        repaired = tomllib.loads(path.read_text(encoding='utf-8'))
+        self.assertTrue(SCHEMA28_KEYS)
+        for name, keys in SCHEMA28_KEYS.items():
+            self.assertEqual(repaired[name], keys)
+
+    def test_mod_builder_config_gets_driving_first_keys(self):
+        fresh, _ = self.run_gate(None)
+        defaults = tomllib.loads(fresh.read_text(encoding='utf-8'))
+        path, result = self.run_gate(b'enabled_mods = "immersive_camera"\n')
+        self.assertEqual((result.returncode, result.stdout), (0, '1 0 1'))
+        repaired = tomllib.loads(path.read_text(encoding='utf-8'))
+        for name in SCHEMA28_KEYS:
+            self.assertEqual(repaired[name], defaults[name])
+        self.assertNotEqual(repaired['keybind_start'], SCHEMA28_KEYS['keybind_start'])
+
+    def test_empty_values_become_empty_strings(self):
+        for newline in ('\n', '\r\n'):
+            data = newline.join((f'pinyon_shift_config_schema = {self.schema}',
+                                 'cheat_gps_destination = ', 'cheat_set_profile_fields =',
+                                 'vsync = false', '')).encode()
+            path, result = self.run_gate(data)
+            self.assertEqual((result.returncode, result.stdout), (0, '1 0 1'))
+            self.assertEqual(Path(str(path) + '.emptyvalue.bak').read_bytes(), data)
+            repaired = tomllib.loads(path.read_text(encoding='utf-8'))
+            self.assertEqual(repaired['cheat_gps_destination'], '')
+            self.assertEqual(repaired['cheat_set_profile_fields'], '')
+            self.assertIs(repaired['vsync'], False)
+            again = subprocess.run([str(self.exe), str(path)], capture_output=True, text=True)
+            self.assertEqual((again.returncode, again.stdout), (0, '1 0 0'))
 
     def test_empty_schema_less_config_matches_first_launch(self):
         fresh, _ = self.run_gate(None)

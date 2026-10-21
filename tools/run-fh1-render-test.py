@@ -23,7 +23,7 @@ from pathlib import Path
 SCHEMA = "pinyon-shift.fh1-render-test-result.v1"
 HEADER = "pinyon-shift-fh1-render-test-v1"
 # Keys a `hostkey` step may press (src/fh1_render_test.cpp ParseHostKey).
-HOST_KEYS = {"f6", "f7", "f8", "f9", "f10", "enter", "escape", "up", "down", "left", "right", "space"}
+HOST_KEYS = {"f3", "f6", "f7", "f8", "f9", "f10", "enter", "escape", "up", "down", "left", "right", "space"}
 PASS_FAMILY = re.compile(
     r"FH1 V5 pass family (?P<family>[0-9A-F]{16}): attachment "
     r"(?P<attachment>[0-9A-F]{16}), first family (?P<first_family>[0-9A-F]{16}), "
@@ -54,6 +54,46 @@ def git_revision(path: Path) -> str | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     return head + ("-dirty" if dirty.strip() else "")
+
+
+def build_provenance(build_directory: Path | None, configuration: str | None) -> dict:
+    """The executable a run launches and the record its build wrote (#746).
+
+    The record (pinyon_shift_build.json, from build-preview.ps1 or
+    build-v4.ps1) names the commits, CPU flags and analysis files; the hash
+    taken here shows whether the executable is still the one it describes.
+    """
+    import hashlib
+    root = Path(__file__).resolve().parents[1]
+    if build_directory is None:
+        preset = "win-amd64-" + (configuration or "Release").lower()
+        build_directory = root / "out/build" / preset
+    executable = build_directory / ("pinyon_shift.exe" if sys.platform == "win32" else "pinyon_shift")
+    result: dict = {"directory": str(build_directory)}
+    if executable.is_file():
+        digest = hashlib.sha256()
+        with executable.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(chunk)
+        result["executable_sha256"] = digest.hexdigest().upper()
+    record = build_directory / "pinyon_shift_build.json"
+    if record.is_file():
+        try:
+            result["record"] = json.loads(record.read_text(encoding="utf-8-sig"))
+        except ValueError:
+            result["record"] = None
+        recorded = (result.get("record") or {}).get("executable_sha256", "")
+        result["record_matches_executable"] = recorded.upper() == result.get("executable_sha256")
+    return result
+
+
+def run_config(state_root: Path) -> dict | None:
+    """The settings the run's game read, after its own migrations."""
+    path = state_root / "config/pinyon_shift.toml"
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
 
 
 def parse_cpu_list(text: str) -> list[int]:
@@ -1894,6 +1934,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     source_revision = {name: git_revision(path) for name, path in (
         ("commit", Path(__file__).resolve().parents[1]),
         ("sdk", Path(__file__).resolve().parents[1] / "thirdparty/shiftglue-sdk"))}
+    build = build_provenance(args.build_directory and args.build_directory.resolve(),
+                             args.configuration)
     with LowSpecSimulation(args) as simulation:
         process = subprocess.run(
             command, capture_output=True, text=True, timeout=timeout + 30, check=False,
@@ -2204,6 +2246,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "low_spec_simulation": simulation.summary(),
         "game_arguments": game_arguments,
         "source_revision": source_revision,
+        "build": build,
+        "config": run_config(run_state_root),
         "comparisons": comparisons,
         "vehicle_pose_comparisons": pose_comparisons,
         "capture_mae": capture_mae,

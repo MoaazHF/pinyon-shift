@@ -51,8 +51,14 @@ Before each start the launcher rebuilds the enabled mods' archives in `.local/pr
 When `pinyon_shift.toml` exists without its configuration schema line, startup
 backs it up as `pinyon_shift.toml.noschema.bak` and adds missing current defaults
 (including Vulkan). Explicit values, unknown keys, and comments stay in the
-file. This also covers a new state where the mod builders wrote only
-`enabled_mods` before the first game launch.
+file. Missing keyboard binds come back as the keys you had before the
+driving-first layout; a new state where the mod builders wrote only
+`enabled_mods` before the first game launch gets the current layout.
+Trainer settings that clear themselves after use (a GPS or teleport
+destination, a profile field edit) were written as `name = ` with no value
+in builds before 2026-10-19, which made the whole file unreadable; startup
+now backs such a file up as `pinyon_shift.toml.emptyvalue.bak` and gives
+those lines an empty value.
 The backup keeps the original bytes, including a UTF-8 BOM or Windows line endings.
 Invalid TOML is left for you to correct before retrying. A configuration from a
 newer build is accepted without changing its schema or dropping unknown settings.

@@ -373,6 +373,8 @@ struct MapTravelRequest {
 MapTravelRequest g_map_travel;
 uint32_t g_observed_map = 0;
 bool g_observed_enabled = false;
+// The map whose last predicate call was admitted only by FAST TRAVEL ANYWHERE.
+uint32_t g_overridden_map = 0;
 
 uint32_t Components() {
   const uint32_t holder = LoadPointer(kWorldHolder, 8);
@@ -532,10 +534,11 @@ void UpdateDestinations() {
   GpsDestinationApplied();
 }
 
-bool AllowMapTravel(uint32_t map, bool title_enabled) {
+bool AllowMapTravel(uint32_t map, bool title_enabled, bool title_admitted) {
   if (!Enabled()) return false;
   const bool readable = Readable(map, 580);
   std::lock_guard travel_lock(g_travel_mutex);
+  g_overridden_map = 0;
   if (map != g_observed_map || title_enabled != g_observed_enabled) {
     g_observed_map = map;
     g_observed_enabled = title_enabled;
@@ -564,7 +567,11 @@ bool AllowMapTravel(uint32_t map, bool title_enabled) {
     g_map_travel = {};
     g_travel_queued.store(false);
   }
-  return title_enabled && FreeRoam() && (custom || FastTravelAnywhere());
+  if (!title_enabled || !FreeRoam() || !(custom || FastTravelAnywhere())) return false;
+  // Only a destination the title refused takes the road fallback; an eligible
+  // hovered marker keeps its own placement.
+  if (!custom && !title_admitted) g_overridden_map = map;
+  return true;
 }
 
 bool PrepareMapTravelInput(uint32_t map) {
@@ -579,8 +586,12 @@ bool PrepareMapTravelInput(uint32_t map) {
     g_map_travel.armed_map = map;
     return true;
   }
-  // Physical map travel uses the same road fallback while the cheat is on.
-  return FastTravelAnywhere() && Load8(map + 426) && RoadPosition(Load32(map + kRoadPoint));
+  return false;
+}
+
+bool UseMapRoadFallback(uint32_t map, bool admitted) {
+  std::lock_guard lock(g_travel_mutex);
+  return admitted && Enabled() && map != 0 && map == g_overridden_map;
 }
 
 bool ShowCollectibles() { return Enabled() && REXCVAR_GET(cheat_show_collectibles); }

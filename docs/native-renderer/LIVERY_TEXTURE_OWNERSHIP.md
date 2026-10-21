@@ -36,6 +36,29 @@ pre-correction cache it fails three of 27 assertions; the corrected cache passes
 all 27, including the binding memo regression below. The full SDK suite passes
 298 tests (four skipped), with 2,465 assertions.
 
+### Partly resolved compressed targets
+
+A review asked whether the complete-ownership rule could send a compressed
+texture the GPU made itself, such as a livery, to stale ordinary memory when a
+resolve covers only part of its base or mip range. On multivac (RTX 4080,
+Windows Vulkan, v4 build, 2026-10-19) a temporary log in
+`FindOrCreateTexture` recorded every compressed texture the rule rejected
+although some page of it belonged to resolves. A route from the v4 reference
+seed fast travels to Race Central, then runs the `fh1-livery-save` steps
+(three white layers saved to the stock MX5) and re-enters Design Creator with
+the painted car.
+
+At 2x the edit-and-save run logged 46 distinct rejected textures and the
+re-entry run 6. All but one had no resolved page in the base and leftover
+resolve pages only in the mips, the stale-allocation case this rule exists
+for. They include the same 768x256 DXT1 allocation as above, a 1024x1024
+DXT5 and 64x64 DXT1 textures. The exception was one 8x8 DXT5 whose padded
+16 KiB base was partly resolved, seen once during the return to free roam and
+not in the re-entry run. The design on the door, the festival advertisements
+and the road matched a 1x run of the edit-and-save route, and the re-entered
+design and world were intact at 2x (the 1x re-entry run missed its map cursor
+and was not compared). The rule stays as it is.
+
 ## The cache defect
 
 The six fetch-constant words describe a guest texture. They do not say whether

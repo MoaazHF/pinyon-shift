@@ -49,6 +49,7 @@ set(PINYON_SHIFT_HOST_SOURCES
     src/guest_native/fmod_dsp.cpp
     src/guest_native/fmod_output.cpp
     src/guest_native/reference_verify.cpp
+    src/guest_native/region_oracle.cpp
     src/dlc/rally_progress.cpp
     src/dlc/rally_pace_notes.cpp
     src/dlc/rally_audio_probe.cpp
@@ -76,11 +77,13 @@ set(PINYON_SHIFT_HOST_SOURCES
     src/ui/achievements_menu.cpp
     src/ui/touch_pad.cpp
     src/config/host_config.cpp
+    src/platform/display_hdr.cpp
     src/platform/host_platform.cpp
     src/platform/sha256.cpp
     ${REXSDK_DIR}/thirdparty/crypto/sha256.cpp
     src/native_renderer/d3d_census.cpp
     src/native_renderer/d3d_draw.cpp
+    src/native_renderer/d3d_program.cpp
     src/native_renderer/graphics_hooks.cpp
     src/native_renderer/guest_output_renderer.cpp
     src/native_renderer/shader_capture.cpp
@@ -115,15 +118,33 @@ elseif(ANDROID)
     # NN-1.9: an lld symbol ordering file from a probe build's call counts
     # (tools/make-symbol-order.py) puts the hot generated functions together:
     # on the Odin race, libmain's resident pages fell from 52 to 34-36 MB.
-    # The tracked file comes from the base image's boot-to-race route, so v4
-    # builds go without one.
+    # The base file comes from the base image's boot-to-race route, the v4
+    # file from a v4 probe build's drive (PINYON_SHIFT_RECOMP_PROBE with
+    # PINYON_SHIFT_TITLE_UPDATE_V4, #745); the base list translated to v4
+    # addresses missed too many entered functions to help.
     if(PINYON_SHIFT_TITLE_UPDATE_V4)
-        set(_pinyon_symbol_order_default "")
+        set(_pinyon_symbol_order_default "${CMAKE_CURRENT_SOURCE_DIR}/config/performance/symbol-order-v4.txt")
     else()
         set(_pinyon_symbol_order_default "${CMAKE_CURRENT_SOURCE_DIR}/config/performance/symbol-order-base.txt")
     endif()
+    # A cache keeps its value when the default changes, so a build directory
+    # still holding the previous default takes the new one. Caches from
+    # before #745 recorded no default; v4's was empty then.
+    if(DEFINED CACHE{PINYON_SHIFT_SYMBOL_ORDER_DEFAULT_USED})
+        set(_pinyon_symbol_order_previous "$CACHE{PINYON_SHIFT_SYMBOL_ORDER_DEFAULT_USED}")
+    elseif(PINYON_SHIFT_TITLE_UPDATE_V4)
+        set(_pinyon_symbol_order_previous "")
+    else()
+        set(_pinyon_symbol_order_previous "${_pinyon_symbol_order_default}")
+    endif()
+    if(DEFINED CACHE{PINYON_SHIFT_SYMBOL_ORDER_FILE} AND
+       "$CACHE{PINYON_SHIFT_SYMBOL_ORDER_FILE}" STREQUAL "${_pinyon_symbol_order_previous}")
+        set_property(CACHE PINYON_SHIFT_SYMBOL_ORDER_FILE PROPERTY VALUE "${_pinyon_symbol_order_default}")
+    endif()
     set(PINYON_SHIFT_SYMBOL_ORDER_FILE "${_pinyon_symbol_order_default}" CACHE FILEPATH
         "lld symbol ordering file for libmain (tools/make-symbol-order.py); empty for none")
+    set(PINYON_SHIFT_SYMBOL_ORDER_DEFAULT_USED "${_pinyon_symbol_order_default}" CACHE INTERNAL
+        "the symbol ordering default this build directory last configured with")
     if(PINYON_SHIFT_SYMBOL_ORDER_FILE)
         target_link_options(pinyon_shift PRIVATE
             "-Wl,--symbol-ordering-file=${PINYON_SHIFT_SYMBOL_ORDER_FILE}"

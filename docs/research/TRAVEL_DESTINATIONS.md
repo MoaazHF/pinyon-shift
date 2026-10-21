@@ -9,6 +9,7 @@ teleport call. Static tracing on the supported base and v4 executables finds:
 | Title travel permission | `0x82613E28` | `0x826BAAC8` | Fast-travel manager in r3; retains the title's scripted locks. |
 | Map predicate return hook | `0x827FB0E8` | `0x828AF4C8` | r30 map component, r31 title permission, r11 result before conversion to r3. Exact normalized function match. |
 | Map input-consumption hook | `0x82803344` | `0x828B787C` | Before the travel input test: r21 hovered marker, r31 map component. Arm a prepared request here and clear r21 for the native road fallback instead of a marker's transform. |
+| Map predicate result hook | `0x82803360` | `0x828B7898` | The map update's own predicate result in r3, before conversion; r21 and r31 as above. Clears r21 only when the trainer override alone admitted the travel. The predicate also runs for the map's button hints, so the gate cannot clear r21 itself. |
 | Native road lookup | `0x827FADE8` | `0x828AF1B8` | r4 pointer to float4 world position; r3 input unused; returns the closest road graph point. Base queries `road_type` through component index `0x832FF094`; v4 queries its GPS position manager at index `0x833EDC44`. |
 | Teleport action enter | `0x829887E0` | `0x82A3C6D8` | `CTeleportCarToFastTravelDestination`; uses the manager's destination matrix and initializes per-instance progress. |
 | Teleport action update | `0x82988948` | `0x82A3C848` | Advances per-instance progress and signals its completion transition. |
@@ -45,6 +46,27 @@ and selects the road fallback instead of a hovered marker. The title's
 predicate still checks travel permission before the host clears the unrelated
 cursor marker's quoted cost (+444). The native update clears its input latch
 on exit; a cancelled request leaves no deferred input in an inactive map.
+
+With FAST TRAVEL ANYWHERE on and no queued request, the hovered marker
+decides the landing. After the map update's predicate passes, a nonzero r21
+supplies its object's transform as the destination; a zero r21, or a marker
+whose transform is the identity, leaves the nearest road point. An earlier
+version cleared r21 on every physical travel press while the option was on.
+On the v4 reference seed (2026-10-19) that moved a Horizon Outpost (South
+Beaumont) landing from inside the outpost, in front of its entry, to the road
+about 28 m away; with the option off the same press landed inside. Race
+Central landed at the same pose either way. The trainer now clears r21 only
+when the title refused the marker (its predicate result in r11 was false) and
+the option admitted it: a barn find, which the title cannot travel to, lands
+on its nearest road, and the outpost lands where the title puts it.
+
+A queued request cannot repeat travel. The input hook writes the latch
+immediately before the map update tests it, and the predicate it calls
+reaches the gate in the same update, so the gate sees the latch it armed and
+clears the request on the press that starts travel. If the map skips its test
+that update, nothing travels and the next update re-arms. Three successive
+v4 targets each logged one `waiting_for_map` and one `native_map_handoff` in
+the same second, with no later travel or `cancelled` event.
 
 Setting the latch only inside the predicate left an idle-map probe waiting
 until a physical X press. A queued write outside the map update also expired
